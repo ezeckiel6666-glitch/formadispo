@@ -47,30 +47,41 @@ export default function Invitation({ session, onProfileCreated }) {
 
     try {
       console.log('[Invitation] Creating formateur + profile...')
+      console.log('[Invitation] Form data:', formData)
+      console.log('[Invitation] User email:', session.user.email)
 
-      // 1. Créer formateur (ou chercher l'existant)
-      const { data: formateurData, error: formateurErr } = await supabase
+      // 1. Créer formateur
+      const formateurPayload = {
+        nom: session.user.email.split('@')[0] || 'Formateur',
+        prenom: 'Nouveau',
+        email: session.user.email,
+        specialites: formData.formations_specialisees || [],
+        rayon_km: formData.rayon_intervention || 50,
+        actif: true,
+      }
+      console.log('[Invitation] Inserting formateur:', formateurPayload)
+
+      const formateurRes = await supabase
         .from('formateurs')
-        .insert({
-          nom: session.user.user_metadata?.last_name || 'N/A',
-          prenom: session.user.user_metadata?.first_name || 'N/A',
-          email: session.user.email,
-          specialites: formData.formations_specialisees,
-          rayon_km: formData.rayon_intervention,
-          actif: true,
-        })
+        .insert(formateurPayload)
         .select()
-        .single()
 
-      if (formateurErr) {
-        console.error('[Invitation] Formateur error:', formateurErr)
-        throw formateurErr
+      console.log('[Invitation] Formateur response:', formateurRes)
+      if (formateurRes.error) {
+        console.error('[Invitation] Formateur error:', formateurRes.error)
+        throw formateurRes.error
       }
 
+      const formateurData = formateurRes.data?.[0]
       console.log('[Invitation] Formateur created:', formateurData?.id)
 
+      if (!formateurData?.id) {
+        throw new Error('Formateur ID not returned')
+      }
+
       // 2. Créer profil
-      const { data: profilData, error: profilErr } = await supabase
+      console.log('[Invitation] Inserting profil with formateur_id:', formateurData.id)
+      const profilRes = await supabase
         .from('profils')
         .insert({
           id: session.user.id,
@@ -79,17 +90,18 @@ export default function Invitation({ session, onProfileCreated }) {
           actif: true,
         })
         .select()
-        .single()
 
-      if (profilErr) {
-        console.error('[Invitation] Profil error:', profilErr)
-        throw profilErr
+      console.log('[Invitation] Profil response:', profilRes)
+      if (profilRes.error) {
+        console.error('[Invitation] Profil error:', profilRes.error)
+        throw profilRes.error
       }
 
+      const profilData = profilRes.data?.[0]
       console.log('[Invitation] Profile created:', profilData?.id)
-      onProfileCreated(profilData)
+      onProfileCreated(profilData || { ...formateurData, id: session.user.id })
     } catch (err) {
-      console.error('[Invitation] Error:', err)
+      console.error('[Invitation] Exception:', err)
       setError(err.message || 'Erreur lors de la création du profil')
       setLoading(false)
     }
