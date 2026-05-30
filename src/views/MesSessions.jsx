@@ -36,7 +36,7 @@ export default function MesSessions({ profile }) {
   const getStatutColor = (statut) => {
     const variants = {
       confirmée: 'success',
-      en attente: 'primary',
+      'en attente': 'primary',
       annulée: 'danger',
     }
     return variants[statut] || 'primary'
