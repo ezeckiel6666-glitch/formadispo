@@ -61,62 +61,39 @@ export default function Invitation({ session, onProfileCreated }) {
       }
       console.log('[Invitation] Inserting formateur:', formateurPayload)
 
-      // Chercher le formateur existant par email
-      console.log('[Invitation] Looking for existing formateur...')
-      const { data: existingFormateur, error: searchErr } = await supabase
-        .from('formateurs')
-        .select('id')
-        .eq('email', session.user.email)
-        .maybeSingle()
+      console.log('[Invitation] Creating profil (assuming formateur exists)...')
 
-      let formateurId
-      if (existingFormateur) {
-        console.log('[Invitation] Formateur exists:', existingFormateur.id)
-        formateurId = existingFormateur.id
-      } else {
-        console.log('[Invitation] Creating new formateur...')
-        const { error: insertErr } = await supabase
-          .from('formateurs')
-          .insert(formateurPayload)
-
-        if (insertErr) {
-          console.error('[Invitation] Insert error:', insertErr)
-          throw insertErr
-        }
-
-        // Recharger pour avoir l'ID
-        const { data: newF, error: reloadErr } = await supabase
-          .from('formateurs')
-          .select('id')
-          .eq('email', session.user.email)
-          .single()
-
-        if (reloadErr) throw reloadErr
-        formateurId = newF.id
-        console.log('[Invitation] New formateur created:', formateurId)
-      }
-
-      // 2. Créer profil
-      console.log('[Invitation] Creating profil...')
-      const { error: profilErr } = await supabase
+      // Créer le profil - le formateur devrait déjà exister
+      // Si l'email existe, on suppose que formateur_id sera set par défaut ou manuellement
+      const { error: profilErr, data: profilData } = await supabase
         .from('profils')
         .insert({
           id: session.user.id,
           role: 'formateur',
-          formateur_id: formateurId,
           actif: true,
         })
+        .select()
+
+      console.log('[Invitation] Profil insert response:', profilErr, profilData)
 
       if (profilErr) {
         console.error('[Invitation] Profil error:', profilErr)
-        // Si le profil existe déjà, c'est OK
-        if (!profilErr.message?.includes('duplicate')) {
-          throw profilErr
+        // Si le profil existe déjà, c'est OK - récupère-le
+        if (profilErr.code === 'PGRST116' || profilErr.message?.includes('duplicate')) {
+          console.log('[Invitation] Profile already exists, fetching it...')
+          const { data: existing } = await supabase
+            .from('profils')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+          onProfileCreated(existing)
+          return
         }
+        throw profilErr
       }
 
-      console.log('[Invitation] Done! Calling onProfileCreated')
-      onProfileCreated({ id: session.user.id, role: 'formateur', formateur_id: formateurId, actif: true })
+      console.log('[Invitation] Done! Profile created:', profilData?.[0]?.id)
+      onProfileCreated(profilData?.[0])
     } catch (err) {
       console.error('[Invitation] Exception:', err)
       setError(err.message || 'Erreur lors de la création du profil')
