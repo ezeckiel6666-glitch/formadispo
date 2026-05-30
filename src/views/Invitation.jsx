@@ -99,7 +99,20 @@ export default function Invitation({ session, onProfileCreated }) {
 
       const profilData = profilRes.data?.[0]
       console.log('[Invitation] Profile created:', profilData?.id)
-      onProfileCreated(profilData || { ...formateurData, id: session.user.id })
+
+      // Recharger le profil pour s'assurer qu'on a les bonnes données
+      const { data: freshProfile, error: refreshErr } = await supabase
+        .from('profils')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+
+      console.log('[Invitation] Refreshed profile:', freshProfile)
+      if (refreshErr) {
+        console.warn('[Invitation] Refresh warning:', refreshErr)
+      }
+
+      onProfileCreated(freshProfile || profilData)
     } catch (err) {
       console.error('[Invitation] Exception:', err)
       setError(err.message || 'Erreur lors de la création du profil')
