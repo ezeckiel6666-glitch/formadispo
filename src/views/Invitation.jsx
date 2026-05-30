@@ -63,7 +63,7 @@ export default function Invitation({ session, onProfileCreated }) {
 
       const formateurRes = await supabase
         .from('formateurs')
-        .insert(formateurPayload)
+        .upsert(formateurPayload, { onConflict: 'email' })
         .select()
 
       console.log('[Invitation] Formateur response:', formateurRes)
