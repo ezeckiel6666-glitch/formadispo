@@ -55,7 +55,7 @@ export default function MesPieces({ profile }) {
         .insert({
           formateur_id: profile.formateur_id,
           type,
-          nom_fichier: file.name,
+          libelle: file.name,
           storage_path: fileName,
           statut: 'en attente',
         })
@@ -225,10 +225,10 @@ export default function MesPieces({ profile }) {
               >
                 <div>
                   <p style={{ color: COULEURS.text_main, margin: '0 0 4px 0', fontWeight: '500' }}>
-                    {p.nom_fichier}
+                    {p.libelle}
                   </p>
                   <p style={{ color: COULEURS.text_sec, margin: '0', fontSize: '12px' }}>
-                    {p.type} · {new Date(p.created_at).toLocaleDateString('fr-FR')}
+                    {p.type} · {new Date(p.date_depot).toLocaleDateString('fr-FR')}
                   </p>
                 </div>
                 <span

@@ -19,8 +19,8 @@ export default function Notifications({ profile }) {
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (profile?.user_id) {
-        query = query.eq('user_id', profile.user_id)
+      if (profile?.id) {
+        query = query.eq('destinataire', profile.id)
       }
 
       if (filter === 'non_lus') {

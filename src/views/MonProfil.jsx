@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { updateProfile } from '../lib/auth'
 import { COULEURS } from '../lib/constants'
 
 const ZONES_PREDEFINIES = [
@@ -47,11 +46,14 @@ export default function MonProfil({ profile, onUpdate }) {
     setMessage('')
 
     try {
-      const { error } = await updateProfile({
-        zones_activites: formData.zones_activites,
-        formations_specialisees: formData.formations_specialisees,
-        rayon_intervention: formData.rayon_intervention,
-      })
+      console.log('[MonProfil] Updating formateur...')
+      const { error } = await supabase
+        .from('formateurs')
+        .update({
+          specialites: formData.formations_specialisees,
+          rayon_km: formData.rayon_intervention,
+        })
+        .eq('id', profile?.formateur_id)
 
       if (error) throw error
       setMessage('Profil mis à jour avec succès')

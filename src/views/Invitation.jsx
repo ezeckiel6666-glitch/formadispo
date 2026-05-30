@@ -46,35 +46,48 @@ export default function Invitation({ session, onProfileCreated }) {
     setError('')
 
     try {
-      console.log('[Invitation] Creating profile...')
-      const { error: err } = await supabase
-        .from('profils')
-        .upsert({
-          user_id: session.user.id,
-          zones_activites: formData.zones_activites,
-          formations_specialisees: formData.formations_specialisees,
-          rayon_intervention: formData.rayon_intervention,
+      console.log('[Invitation] Creating formateur + profile...')
+
+      // 1. Créer formateur (ou chercher l'existant)
+      const { data: formateurData, error: formateurErr } = await supabase
+        .from('formateurs')
+        .insert({
+          nom: session.user.user_metadata?.last_name || 'N/A',
+          prenom: session.user.user_metadata?.first_name || 'N/A',
+          email: session.user.email,
+          specialites: formData.formations_specialisees,
+          rayon_km: formData.rayon_intervention,
           actif: true,
-        }, { onConflict: 'user_id' })
+        })
+        .select()
+        .single()
 
-      if (err) {
-        console.error('[Invitation] Upsert error:', err)
-        throw err
+      if (formateurErr) {
+        console.error('[Invitation] Formateur error:', formateurErr)
+        throw formateurErr
       }
 
-      // Récupérer le profil créé
-      const { data, error: fetchErr } = await supabase
+      console.log('[Invitation] Formateur created:', formateurData?.id)
+
+      // 2. Créer profil
+      const { data: profilData, error: profilErr } = await supabase
         .from('profils')
-        .select('*')
-        .eq('user_id', session.user.id)
+        .insert({
+          id: session.user.id,
+          role: 'formateur',
+          formateur_id: formateurData.id,
+          actif: true,
+        })
+        .select()
+        .single()
 
-      if (fetchErr) {
-        console.error('[Invitation] Fetch error:', fetchErr)
-        throw fetchErr
+      if (profilErr) {
+        console.error('[Invitation] Profil error:', profilErr)
+        throw profilErr
       }
 
-      console.log('[Invitation] Profile created:', data?.[0]?.id)
-      onProfileCreated(data?.[0] || data)
+      console.log('[Invitation] Profile created:', profilData?.id)
+      onProfileCreated(profilData)
     } catch (err) {
       console.error('[Invitation] Error:', err)
       setError(err.message || 'Erreur lors de la création du profil')
