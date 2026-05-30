@@ -14,46 +14,45 @@ export default function App() {
   const [view, setView] = useState('dashboard')
 
   useEffect(() => {
+    let isMounted = true
+
     async function init() {
       try {
-        console.log('[App] Initializing...')
+        console.log('[App] Init starting')
         const { data: { session: s }, error: sessErr } = await supabase.auth.getSession()
-        console.log('[App] Session:', s?.user?.email || 'none', sessErr)
+        console.log('[App] Got session:', s?.user?.email || 'none')
+
+        if (!isMounted) return
         setSession(s)
 
         if (s) {
+          console.log('[App] Fetching profile...')
           const { profile: p, error: profErr } = await getCurrentProfile()
-          console.log('[App] Profile:', p?.id || 'none', profErr)
+          console.log('[App] Got profile:', p?.id || 'null', profErr?.message)
+
+          if (!isMounted) return
           setProfile(p)
         }
         console.log('[App] Init complete')
       } catch (err) {
         console.error('[App] Init error:', err)
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
 
     init()
 
-    // Simple auth listener
-    let unsubscribe
-    try {
-      const subscription = supabase.auth.onAuthStateChange(async (event, s) => {
-        console.log('[App] Auth state changed:', event, s?.user?.email)
-        setSession(s)
-        if (s) {
-          const { profile: p } = await getCurrentProfile()
-          setProfile(p)
-        }
-      })
-      unsubscribe = subscription?.data?.subscription?.unsubscribe
-    } catch (err) {
-      console.error('[App] Auth listener error:', err)
-    }
+    // Auth listener (simpler)
+    const { data } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log('[App] Auth state changed:', event)
+      if (!isMounted) return
+      setSession(s)
+    })
 
     return () => {
-      unsubscribe?.()
+      isMounted = false
+      data?.subscription?.unsubscribe()
     }
   }, [])
 

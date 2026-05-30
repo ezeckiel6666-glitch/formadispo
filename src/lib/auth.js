@@ -7,24 +7,30 @@ export async function getSession() {
 
 export async function getCurrentProfile() {
   try {
+    console.log('[Auth] getCurrentProfile start')
     const { data: session, error: sessionError } = await supabase.auth.getSession()
+    console.log('[Auth] getSession done:', session?.session?.user?.id)
     if (sessionError || !session?.session?.user) {
+      console.log('[Auth] No session, returning null')
       return { profile: null, error: sessionError }
     }
 
+    console.log('[Auth] Fetching profile for user:', session.session.user.id)
     const { data, error } = await supabase
       .from('profils')
       .select('*')
       .eq('user_id', session.session.user.id)
 
+    console.log('[Auth] Profile query done:', data?.length, error)
     if (error) {
       console.error('[Auth] Profile fetch error:', error)
       return { profile: null, error }
     }
 
+    console.log('[Auth] Returning profile:', data?.[0]?.id || 'null')
     return { profile: data?.[0] || null, error: null }
   } catch (err) {
-    console.error('[Auth] getCurrentProfile error:', err)
+    console.error('[Auth] getCurrentProfile exception:', err)
     return { profile: null, error: err }
   }
 }
