@@ -11,23 +11,29 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('dashboard') // dashboard, monprofil, mespieaces, etc
+  const [view, setView] = useState('dashboard')
 
   useEffect(() => {
     async function init() {
-      const { data: { session: s } } = await supabase.auth.getSession()
-      setSession(s)
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession()
+        setSession(s)
 
-      if (s) {
-        const { profile: p } = await getCurrentProfile()
-        setProfile(p)
+        if (s) {
+          const { profile: p } = await getCurrentProfile()
+          setProfile(p)
+        }
+      } catch (err) {
+        console.error('Init error:', err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     init()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChanged(async (_event, s) => {
+    // Simple auth listener
+    const { data } = supabase.auth.onAuthStateChange(async (event, s) => {
       setSession(s)
       if (s) {
         const { profile: p } = await getCurrentProfile()
@@ -35,7 +41,9 @@ export default function App() {
       }
     })
 
-    return () => subscription?.unsubscribe()
+    return () => {
+      data?.subscription?.unsubscribe()
+    }
   }, [])
 
   if (loading) return <Spinner />
