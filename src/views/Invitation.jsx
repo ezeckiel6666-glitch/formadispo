@@ -46,7 +46,7 @@ export default function Invitation({ session, onProfileCreated }) {
     setError('')
 
     try {
-      // Créer ou mettre à jour le profil
+      console.log('[Invitation] Creating profile...')
       const { error: err } = await supabase
         .from('profils')
         .upsert({
@@ -57,19 +57,27 @@ export default function Invitation({ session, onProfileCreated }) {
           actif: true,
         }, { onConflict: 'user_id' })
 
-      if (err) throw err
+      if (err) {
+        console.error('[Invitation] Upsert error:', err)
+        throw err
+      }
 
       // Récupérer le profil créé
       const { data, error: fetchErr } = await supabase
         .from('profils')
         .select('*')
         .eq('user_id', session.user.id)
-        .single()
 
-      if (fetchErr) throw fetchErr
-      onProfileCreated(data)
+      if (fetchErr) {
+        console.error('[Invitation] Fetch error:', fetchErr)
+        throw fetchErr
+      }
+
+      console.log('[Invitation] Profile created:', data?.[0]?.id)
+      onProfileCreated(data?.[0] || data)
     } catch (err) {
-      setError(err.message)
+      console.error('[Invitation] Error:', err)
+      setError(err.message || 'Erreur lors de la création du profil')
       setLoading(false)
     }
   }

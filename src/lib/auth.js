@@ -6,16 +6,27 @@ export async function getSession() {
 }
 
 export async function getCurrentProfile() {
-  const { data: session, error: sessionError } = await supabase.auth.getSession()
-  if (sessionError || !session.session?.user) return { profile: null, error: sessionError }
+  try {
+    const { data: session, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError || !session?.session?.user) {
+      return { profile: null, error: sessionError }
+    }
 
-  const { data, error } = await supabase
-    .from('profils')
-    .select('*')
-    .eq('user_id', session.session.user.id)
-    .single()
+    const { data, error } = await supabase
+      .from('profils')
+      .select('*')
+      .eq('user_id', session.session.user.id)
 
-  return { profile: data, error }
+    if (error) {
+      console.error('[Auth] Profile fetch error:', error)
+      return { profile: null, error }
+    }
+
+    return { profile: data?.[0] || null, error: null }
+  } catch (err) {
+    console.error('[Auth] getCurrentProfile error:', err)
+    return { profile: null, error: err }
+  }
 }
 
 export async function signInWithEmail(email, password) {
