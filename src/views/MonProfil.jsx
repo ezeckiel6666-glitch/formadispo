@@ -3,13 +3,24 @@ import { supabase } from '../lib/supabase'
 import { updateProfile } from '../lib/auth'
 import { COULEURS } from '../lib/constants'
 
+const ZONES_PREDEFINIES = [
+  { id: 'idf', nom: 'Île-de-France' },
+  { id: 'aura', nom: 'Auvergne-Rhône-Alpes' },
+  { id: 'occ', nom: 'Occitanie' },
+  { id: 'na', nom: 'Nouvelle-Aquitaine' },
+  { id: 'bfc', nom: 'Bourgogne-Franche-Comté' },
+  { id: 'paca', nom: 'Provence-Alpes-Côte d\'Azur' },
+  { id: 'bretagne', nom: 'Bretagne' },
+  { id: 'normandie', nom: 'Normandie' },
+  { id: 'npc', nom: 'Hauts-de-France' },
+]
+
 export default function MonProfil({ profile, onUpdate }) {
   const [formData, setFormData] = useState({
     zones_activites: profile?.zones_activites || [],
     formations_specialisees: profile?.formations_specialisees || [],
     rayon_intervention: profile?.rayon_intervention || 50,
   })
-  const [zones, setZones] = useState([])
   const [formations, setFormations] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -18,14 +29,9 @@ export default function MonProfil({ profile, onUpdate }) {
   useEffect(() => {
     async function load() {
       try {
-        const [zRes, fRes] = await Promise.all([
-          supabase.from('zones').select('*'),
-          supabase.from('formations').select('*'),
-        ])
-        if (zRes.error) throw zRes.error
-        if (fRes.error) throw fRes.error
-        setZones(zRes.data || [])
-        setFormations(fRes.data || [])
+        const { data, error } = await supabase.from('formations').select('id, titre')
+        if (error) throw error
+        setFormations(data || [])
       } catch (err) {
         setMessage(`Erreur: ${err.message}`)
       } finally {
@@ -88,7 +94,7 @@ export default function MonProfil({ profile, onUpdate }) {
               Zones d'activité
             </label>
             <div style={{ display: 'grid', gap: '8px' }}>
-              {zones.map(z => (
+              {ZONES_PREDEFINIES.map(z => (
                 <label key={z.id} style={{
                   display: 'flex',
                   alignItems: 'center',

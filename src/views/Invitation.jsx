@@ -3,35 +3,37 @@ import { supabase } from '../lib/supabase'
 import { COULEURS } from '../lib/constants'
 import { Spinner } from '../components/UI'
 
+const ZONES_PREDEFINIES = [
+  { id: 'idf', nom: 'Île-de-France' },
+  { id: 'aura', nom: 'Auvergne-Rhône-Alpes' },
+  { id: 'occ', nom: 'Occitanie' },
+  { id: 'na', nom: 'Nouvelle-Aquitaine' },
+  { id: 'bfc', nom: 'Bourgogne-Franche-Comté' },
+  { id: 'paca', nom: 'Provence-Alpes-Côte d\'Azur' },
+  { id: 'bretagne', nom: 'Bretagne' },
+  { id: 'normandie', nom: 'Normandie' },
+  { id: 'npc', nom: 'Hauts-de-France' },
+]
+
 export default function Invitation({ session, onProfileCreated }) {
-  const [loading, setLoading] = useState(true)
-  const [zones, setZones] = useState([])
+  const [loading, setLoading] = useState(false)
   const [formations, setFormations] = useState([])
   const [formData, setFormData] = useState({
     zones_activites: [],
     formations_specialisees: [],
     rayon_intervention: 50,
-    indisponibilites: [],
   })
   const [error, setError] = useState('')
 
   useEffect(() => {
     async function load() {
       try {
-        const [zRes, fRes] = await Promise.all([
-          supabase.from('zones').select('*'),
-          supabase.from('formations').select('*'),
-        ])
+        const { data, error: err } = await supabase.from('formations').select('id, titre')
 
-        if (zRes.error) throw zRes.error
-        if (fRes.error) throw fRes.error
-
-        setZones(zRes.data || [])
-        setFormations(fRes.data || [])
-        setLoading(false)
+        if (err) throw err
+        setFormations(data || [])
       } catch (err) {
-        setError(err.message)
-        setLoading(false)
+        console.log('Note: formations pas chargées, utilise les données du serveur')
       }
     }
 
@@ -103,7 +105,7 @@ export default function Invitation({ session, onProfileCreated }) {
               Zones d'activité
             </label>
             <div style={{ display: 'grid', gap: '8px' }}>
-              {zones.map((z) => (
+              {ZONES_PREDEFINIES.map((z) => (
                 <label key={z.id} style={{
                   display: 'flex',
                   alignItems: 'center',
