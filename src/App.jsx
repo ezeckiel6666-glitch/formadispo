@@ -10,57 +10,32 @@ import { COULEURS } from './lib/constants'
 export default function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [view, setView] = useState('dashboard')
 
   useEffect(() => {
-    let isMounted = true
+    console.log('[App] Setting up auth listener')
 
-    async function init() {
-      try {
-        console.log('[App] Init starting')
-        const { data: { session: s }, error: sessErr } = await supabase.auth.getSession()
-        console.log('[App] Got session:', s?.user?.email || 'none')
-
-        if (!isMounted) return
-        setSession(s)
-
-        if (s) {
-          console.log('[App] Fetching profile...')
-          const { profile: p, error: profErr } = await getCurrentProfile()
-          console.log('[App] Got profile:', p?.id || 'null', profErr?.message)
-
-          if (!isMounted) return
-          setProfile(p)
-        }
-        console.log('[App] Init complete')
-      } catch (err) {
-        console.error('[App] Init error:', err)
-      } finally {
-        if (isMounted) setLoading(false)
-      }
-    }
-
-    init()
-
-    // Auth listener (simpler)
     const { data } = supabase.auth.onAuthStateChange(async (event, s) => {
-      console.log('[App] Auth state changed:', event)
-      if (!isMounted) return
+      console.log('[App] Auth event:', event, s?.user?.email)
       setSession(s)
+
+      if (s && event === 'SIGNED_IN') {
+        console.log('[App] User signed in, fetching profile...')
+        const { profile: p } = await getCurrentProfile()
+        console.log('[App] Profile loaded:', p?.id)
+        setProfile(p)
+      }
     })
 
-    return () => {
-      isMounted = false
-      data?.subscription?.unsubscribe()
-    }
+    return () => data?.subscription?.unsubscribe()
   }, [])
 
   if (loading) return <Spinner />
 
   if (!session) return <Login onLoginSuccess={() => {}} />
 
-  if (!profile || !profile.actif) {
+  if (!profile || !profile?.actif) {
     return <Invitation session={session} onProfileCreated={(p) => setProfile(p)} />
   }
 
