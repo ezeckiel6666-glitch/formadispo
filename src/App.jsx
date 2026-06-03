@@ -46,14 +46,21 @@ export default function App() {
     setLoading(true)
     console.log('[App] Fetching profile for user:', user.id)
 
-    getCurrentProfile(user).then(({ profile: p }) => {
+    // setTimeout(0) garantit qu'on sort du verrou interne GoTrue
+    // (navigator.locks) avant de faire une requête Supabase.
+    // Sans ça, le build production (Netlify) deadlock car React déclenche
+    // cet effet pendant que GoTrue tient encore son verrou post-SIGNED_IN.
+    const timer = setTimeout(() => {
       if (cancelled) return
-      console.log('[App] Profile loaded:', p?.id, 'actif:', p?.actif)
-      setProfile(p)
-      setLoading(false)
-    })
+      getCurrentProfile(user).then(({ profile: p }) => {
+        if (cancelled) return
+        console.log('[App] Profile loaded:', p?.id, 'actif:', p?.actif)
+        setProfile(p)
+        setLoading(false)
+      })
+    }, 0)
 
-    return () => { cancelled = true }
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [session?.user?.id])
 
   if (loading) return <Spinner />
