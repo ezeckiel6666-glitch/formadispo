@@ -18,8 +18,8 @@ export default function MesSessions({ profile }) {
         .select(`
           *,
           formations(titre),
-          clients(nom),
-          session_formateurs!inner(*)
+          clients(raison_sociale, contact_nom),
+          session_formateurs!inner(formateur_id)
         `)
         .eq('session_formateurs.formateur_id', profile?.formateur_id)
         .order('date_debut', { ascending: true })
@@ -99,7 +99,7 @@ export default function MesSessions({ profile }) {
                       margin: '0 0 8px 0',
                       fontSize: '14px',
                     }}>
-                      Client : {s.clients?.nom || 'Non spécifié'}
+                      Client : {s.clients?.raison_sociale || s.clients?.contact_nom || 'Non spécifié'}
                     </p>
                   </div>
                   <Badge text={s.statut} variant={getStatutColor(s.statut)} />

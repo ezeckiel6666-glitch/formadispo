@@ -5,32 +5,39 @@ export async function getSession() {
   return { session: data.session, error }
 }
 
-export async function getCurrentProfile() {
+export async function getCurrentProfile(user) {
   try {
-    console.log('[Auth] getCurrentProfile start')
-    const { data: session, error: sessionError } = await supabase.auth.getSession()
-    console.log('[Auth] getSession done:', session?.session?.user?.id)
-    if (sessionError || !session?.session?.user) {
-      console.log('[Auth] No session, returning null')
-      return { profile: null, error: sessionError }
+    console.log('[Auth] getCurrentProfile called with user:', user?.id)
+
+    if (!user?.id) {
+      console.log('[Auth] No user.id, returning null')
+      return { profile: null, error: null }
     }
 
-    console.log('[Auth] Fetching profile for user:', session.session.user.id)
-    const { data, error } = await supabase
+    console.log('[Auth] Fetching profile for user ID:', user.id)
+    const { data, error, status } = await supabase
       .from('profils')
       .select('*')
-      .eq('user_id', session.session.user.id)
+      .eq('id', user.id)
 
-    console.log('[Auth] Profile query done:', data?.length, error)
+    console.log('[Auth] Query status:', status)
+    console.log('[Auth] Query data:', data)
+    console.log('[Auth] Query error:', error)
+
     if (error) {
-      console.error('[Auth] Profile fetch error:', error)
+      console.error('[Auth] Profile fetch error:', error.message, error.code)
       return { profile: null, error }
     }
 
-    console.log('[Auth] Returning profile:', data?.[0]?.id || 'null')
-    return { profile: data?.[0] || null, error: null }
+    if (!data || data.length === 0) {
+      console.warn('[Auth] No profile found for user:', user.id)
+      return { profile: null, error: null }
+    }
+
+    console.log('[Auth] Profile found:', data[0])
+    return { profile: data[0], error: null }
   } catch (err) {
-    console.error('[Auth] getCurrentProfile exception:', err)
+    console.error('[Auth] getCurrentProfile exception:', err.message)
     return { profile: null, error: err }
   }
 }
@@ -58,5 +65,5 @@ export async function updateProfile(updates) {
   return await supabase
     .from('profils')
     .update(updates)
-    .eq('user_id', session.session.user.id)
+    .eq('id', session.session.user.id)
 }

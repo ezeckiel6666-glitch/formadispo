@@ -5,6 +5,7 @@ import MonProfil from './MonProfil'
 import MesPieces from './MesPieces'
 import MesHabilitations from './MesHabilitations'
 import MesSessions from './MesSessions'
+import MesDisponibilites from './MesDisponibilites'
 import Notifications from './Notifications'
 
 const VIEWS = {
@@ -13,6 +14,7 @@ const VIEWS = {
   mespieaces: 'Mes Pièces',
   meshabilitations: 'Mes Habilitations',
   messessions: 'Mes Sessions',
+  mesdisponibilites: 'Mes Disponibilités',
   notifications: 'Notifications',
 }
 
@@ -40,6 +42,8 @@ export default function Dashboard({
         return <MesHabilitations profile={profile} />
       case 'messessions':
         return <MesSessions profile={profile} />
+      case 'mesdisponibilites':
+        return <MesDisponibilites profile={profile} />
       case 'notifications':
         return <Notifications profile={profile} />
       default:
@@ -181,6 +185,7 @@ function DashboardHome({ profile, onNavClick }) {
     { key: 'mespieaces', label: 'Mes Pièces', icon: '📄' },
     { key: 'meshabilitations', label: 'Mes Habilitations', icon: '🏅' },
     { key: 'messessions', label: 'Mes Sessions', icon: '📅' },
+    { key: 'mesdisponibilites', label: 'Mes Disponibilités', icon: '🗓️' },
     { key: 'notifications', label: 'Notifications', icon: '🔔' },
   ]
 

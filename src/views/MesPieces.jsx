@@ -42,7 +42,15 @@ export default function MesPieces({ profile }) {
     setMessage('')
 
     try {
-      const fileName = `${profile.formateur_id}/${type}/${Date.now()}-${file.name}`
+      // Sanitiser le nom : accents → ASCII, espaces → tirets, caractères spéciaux supprimés
+      const sanitize = (name) =>
+        name
+          .normalize('NFD').replace(/[̀-ͯ]/g, '') // enlève les accents
+          .replace(/\s+/g, '-')                              // espaces → tirets
+          .replace(/[^a-zA-Z0-9.\-_]/g, '')                 // retire tout le reste sauf . - _
+
+      const safeName = sanitize(file.name)
+      const fileName = `${profile.formateur_id}/${type}/${Date.now()}-${safeName}`
 
       const { error: uploadError } = await supabase.storage
         .from('pieces_formateurs')
@@ -70,6 +78,19 @@ export default function MesPieces({ profile }) {
       setMessage(`Erreur: ${err.message}`)
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleDownload = async (piece) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('pieces_formateurs')
+        .createSignedUrl(piece.storage_path, 60) // URL valable 60 secondes
+
+      if (error) throw error
+      window.open(data.signedUrl, '_blank')
+    } catch (err) {
+      setMessage(`Erreur téléchargement: ${err.message}`)
     }
   }
 
@@ -223,26 +244,43 @@ export default function MesPieces({ profile }) {
                   border: `1px solid ${COULEURS.border}`,
                 }}
               >
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ color: COULEURS.text_main, margin: '0 0 4px 0', fontWeight: '500' }}>
                     {p.libelle}
                   </p>
                   <p style={{ color: COULEURS.text_sec, margin: '0', fontSize: '12px' }}>
-                    {p.type} · {new Date(p.date_depot).toLocaleDateString('fr-FR')}
+                    {p.type} · {p.date_depot ? new Date(p.date_depot).toLocaleDateString('fr-FR') : '—'}
                   </p>
                 </div>
-                <span
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: '4px',
-                    backgroundColor: getStatutColor(p.statut),
-                    color: COULEURS.text_main,
-                    fontSize: '12px',
-                    fontWeight: '600',
-                  }}
-                >
-                  {p.statut}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <button
+                    onClick={() => handleDownload(p)}
+                    title="Télécharger"
+                    style={{
+                      background: 'none',
+                      border: `1px solid ${COULEURS.border}`,
+                      borderRadius: '4px',
+                      color: COULEURS.text_sec,
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                      fontSize: '14px',
+                    }}
+                  >
+                    ↓
+                  </button>
+                  <span
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: '4px',
+                      backgroundColor: getStatutColor(p.statut),
+                      color: COULEURS.text_main,
+                      fontSize: '12px',
+                      fontWeight: '600',
+                    }}
+                  >
+                    {p.statut}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
