@@ -6,6 +6,34 @@ import Dashboard from './views/Dashboard'
 import { Spinner } from './components/UI'
 import { COULEURS } from './lib/constants'
 
+/**
+ * Attend que GoTrue libère son verrou navigator.locks.
+ *
+ * En production (Netlify), supabase.from() appelle getSession() qui essaie
+ * d'acquérir le verrou 'supabase-gotrue-db-worker'. Si onAuthStateChange
+ * tient encore ce verrou (cleanup post-SIGNED_IN), toutes les requêtes
+ * PostgREST deadlockent → données vides dans toutes les vues.
+ *
+ * En demandant le même verrou ici, on se met en file d'attente derrière
+ * GoTrue et on n'avance qu'une fois qu'il l'a libéré.
+ */
+async function waitForGoTrueLock() {
+  if (typeof window === 'undefined' || !navigator?.locks) return
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
+  try {
+    await navigator.locks.request(
+      'supabase-gotrue-db-worker',
+      { signal: controller.signal },
+      async () => { /* verrou acquis → GoTrue l'a libéré → on relâche immédiatement */ }
+    )
+  } catch {
+    // Timeout ou API non disponible → on continue quand même
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -44,26 +72,24 @@ export default function App() {
 
     let cancelled = false
     setLoading(true)
-    console.log('[App] Fetching profile for user:', user.id)
 
-    // setTimeout(0) garantit qu'on sort du verrou interne GoTrue
-    // (navigator.locks) avant de faire une requête Supabase.
-    // Sans ça, le build production (Netlify) deadlock car React déclenche
-    // cet effet pendant que GoTrue tient encore son verrou post-SIGNED_IN.
-    // On passe le access_token directement : fetch HTTP brut, sans passer
-    // par getSession() du client Supabase → contourne le verrou GoTrue.
     const accessToken = session?.access_token
-    const timer = setTimeout(() => {
-      if (cancelled) return
-      getCurrentProfile(user, accessToken).then(({ profile: p }) => {
-        if (cancelled) return
-        console.log('[App] Profile loaded:', p?.id, 'actif:', p?.actif)
-        setProfile(p)
-        setLoading(false)
-      })
-    }, 0)
 
-    return () => { cancelled = true; clearTimeout(timer) }
+    async function load() {
+      // 1. Charger le profil via fetch direct (pas de verrou GoTrue)
+      const { profile: p } = await getCurrentProfile(user, accessToken)
+      if (cancelled) return
+      setProfile(p)
+
+      // 2. Attendre que GoTrue libère son verrou avant d'afficher le dashboard.
+      //    Sans ça, toutes les vues font supabase.from() → getSession() → deadlock.
+      await waitForGoTrueLock()
+
+      if (!cancelled) setLoading(false)
+    }
+
+    load()
+    return () => { cancelled = true }
   }, [session?.user?.id])
 
   if (loading) return <Spinner />
