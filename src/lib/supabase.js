@@ -8,5 +8,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // Bypass navigator.locks de GoTrue.
+    // En production (Netlify), GoTrue tient ce verrou pendant et après
+    // SIGNED_IN, ce qui bloque tous les supabase.from() (qui appellent
+    // getSession() → même verrou) → deadlock, données vides.
+    // Safe pour une SPA mono-onglet sans service worker partagé.
+    lock: (_name, _timeout, fn) => fn(),
   },
 })

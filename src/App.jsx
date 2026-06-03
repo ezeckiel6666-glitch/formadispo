@@ -6,34 +6,6 @@ import Dashboard from './views/Dashboard'
 import { Spinner } from './components/UI'
 import { COULEURS } from './lib/constants'
 
-/**
- * Attend que GoTrue libère son verrou navigator.locks.
- *
- * En production (Netlify), supabase.from() appelle getSession() qui essaie
- * d'acquérir le verrou 'supabase-gotrue-db-worker'. Si onAuthStateChange
- * tient encore ce verrou (cleanup post-SIGNED_IN), toutes les requêtes
- * PostgREST deadlockent → données vides dans toutes les vues.
- *
- * En demandant le même verrou ici, on se met en file d'attente derrière
- * GoTrue et on n'avance qu'une fois qu'il l'a libéré.
- */
-async function waitForGoTrueLock() {
-  if (typeof window === 'undefined' || !navigator?.locks) return
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
-  try {
-    await navigator.locks.request(
-      'supabase-gotrue-db-worker',
-      { signal: controller.signal },
-      async () => { /* verrou acquis → GoTrue l'a libéré → on relâche immédiatement */ }
-    )
-  } catch {
-    // Timeout ou API non disponible → on continue quand même
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
 export default function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -73,22 +45,12 @@ export default function App() {
     let cancelled = false
     setLoading(true)
 
-    const accessToken = session?.access_token
-
-    async function load() {
-      // 1. Charger le profil via fetch direct (pas de verrou GoTrue)
-      const { profile: p } = await getCurrentProfile(user, accessToken)
+    getCurrentProfile(user).then(({ profile: p }) => {
       if (cancelled) return
       setProfile(p)
+      setLoading(false)
+    })
 
-      // 2. Attendre que GoTrue libère son verrou avant d'afficher le dashboard.
-      //    Sans ça, toutes les vues font supabase.from() → getSession() → deadlock.
-      await waitForGoTrueLock()
-
-      if (!cancelled) setLoading(false)
-    }
-
-    load()
     return () => { cancelled = true }
   }, [session?.user?.id])
 
