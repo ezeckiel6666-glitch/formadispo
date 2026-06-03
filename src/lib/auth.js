@@ -1,43 +1,46 @@
 import { supabase } from './supabase'
 
+const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
+
 export async function getSession() {
   const { data, error } = await supabase.auth.getSession()
   return { session: data.session, error }
 }
 
-export async function getCurrentProfile(user) {
+/**
+ * Charge le profil d'un utilisateur.
+ *
+ * Si `accessToken` est fourni, on fait un fetch HTTP direct avec ce token
+ * pour contourner le verrou interne de GoTrue (navigator.locks).
+ * Sans ça, le build de production deadlock : le client Supabase appelle
+ * getSession() qui essaie d'acquérir le même verrou que tient onAuthStateChange.
+ */
+export async function getCurrentProfile(user, accessToken = null) {
+  if (!user?.id) return { profile: null, error: null }
+
   try {
-    console.log('[Auth] getCurrentProfile called with user:', user?.id)
-
-    if (!user?.id) {
-      console.log('[Auth] No user.id, returning null')
-      return { profile: null, error: null }
+    if (accessToken) {
+      // Fetch direct — bypasse totalement le verrou GoTrue
+      const url = `${SUPABASE_URL}/rest/v1/profils?id=eq.${user.id}&select=*`
+      const res = await fetch(url, {
+        headers: {
+          'apikey':        SUPABASE_ANON,
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept':        'application/json',
+        },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      return { profile: data[0] ?? null, error: null }
     }
 
-    console.log('[Auth] Fetching profile for user ID:', user.id)
-    const { data, error, status } = await supabase
-      .from('profils')
-      .select('*')
-      .eq('id', user.id)
-
-    console.log('[Auth] Query status:', status)
-    console.log('[Auth] Query data:', data)
-    console.log('[Auth] Query error:', error)
-
-    if (error) {
-      console.error('[Auth] Profile fetch error:', error.message, error.code)
-      return { profile: null, error }
-    }
-
-    if (!data || data.length === 0) {
-      console.warn('[Auth] No profile found for user:', user.id)
-      return { profile: null, error: null }
-    }
-
-    console.log('[Auth] Profile found:', data[0])
-    return { profile: data[0], error: null }
+    // Fallback : client Supabase classique (utilisé hors contexte onAuthStateChange)
+    const { data, error } = await supabase.from('profils').select('*').eq('id', user.id)
+    if (error) throw error
+    return { profile: data[0] ?? null, error: null }
   } catch (err) {
-    console.error('[Auth] getCurrentProfile exception:', err.message)
+    console.error('[Auth] getCurrentProfile error:', err.message)
     return { profile: null, error: err }
   }
 }

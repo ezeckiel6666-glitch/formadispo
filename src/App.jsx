@@ -50,9 +50,12 @@ export default function App() {
     // (navigator.locks) avant de faire une requête Supabase.
     // Sans ça, le build production (Netlify) deadlock car React déclenche
     // cet effet pendant que GoTrue tient encore son verrou post-SIGNED_IN.
+    // On passe le access_token directement : fetch HTTP brut, sans passer
+    // par getSession() du client Supabase → contourne le verrou GoTrue.
+    const accessToken = session?.access_token
     const timer = setTimeout(() => {
       if (cancelled) return
-      getCurrentProfile(user).then(({ profile: p }) => {
+      getCurrentProfile(user, accessToken).then(({ profile: p }) => {
         if (cancelled) return
         console.log('[App] Profile loaded:', p?.id, 'actif:', p?.actif)
         setProfile(p)
